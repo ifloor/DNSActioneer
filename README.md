@@ -1,0 +1,1 @@
+Tool that keeps running and check if the egress public IP of a private network changed. When it changes it updates the A DNS records pre-configured in the configs with the IP configured on the egress/ingress selection rules.
