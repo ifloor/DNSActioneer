@@ -40,3 +40,12 @@ func GetEnvDOToken() string {
 	}
 	return doToken
 }
+
+func GetEnvDiscordWebhookUrl() string {
+	url := os.Getenv("DISCORD_WH_URL")
+	if url == "" {
+		log.Println("DISCORD_WH_URL environment variable is not set")
+		panic("DISCORD_WH_URL environment variable is not set")
+	}
+	return url
+}

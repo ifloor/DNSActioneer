@@ -184,7 +184,7 @@ func (a *Actioneer) checkIfDomainRecordsAreCorrect(ruleToApply IPConfiguration) 
 			log.Println("Ignoring record (as it was present on 'doNotChange' list): ", fullDomain)
 		} else {
 			log.Println("A DNS domain is not on 'change' or 'doNotChange' lists. It should not happen: ", fullDomain)
-			// TODO unexpected domain here!!!!
+			utils.SendNotification("A DNS domain is not on 'change' or 'doNotChange' lists. It should not happen: " + fullDomain)
 		}
 	}
 
