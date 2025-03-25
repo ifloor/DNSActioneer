@@ -4,7 +4,7 @@ import (
 	"dnsactioneer/model"
 	"dnsactioneer/utils"
 	"encoding/json"
-	"log"
+	"github.com/rs/zerolog/log"
 )
 
 func GetConfiguration() (model.WorkConfiguration, error) {
@@ -13,7 +13,7 @@ func GetConfiguration() (model.WorkConfiguration, error) {
 	var workConfiguration model.WorkConfiguration
 	err := json.Unmarshal([]byte(configString), &workConfiguration)
 	if err != nil {
-		log.Println("Error unmarshalling configuration")
+		log.Info().Msgf("Error unmarshalling configuration")
 		return model.WorkConfiguration{}, err
 	}
 

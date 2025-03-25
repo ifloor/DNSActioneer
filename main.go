@@ -5,13 +5,13 @@ import (
 	"dnsactioneer/model"
 	"dnsactioneer/parser"
 	"dnsactioneer/utils"
-	"log"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
 	configuration, err := parser.GetConfiguration()
 	if err != nil {
-		log.Println("Error getting configurations")
+		log.Error().Msgf("Error getting configurations")
 		panic(err)
 	}
 

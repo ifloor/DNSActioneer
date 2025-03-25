@@ -5,7 +5,7 @@ import (
 	"dnsactioneer/utils"
 	"errors"
 	"github.com/digitalocean/godo"
-	"log"
+	"github.com/rs/zerolog/log"
 	"time"
 )
 
@@ -24,10 +24,10 @@ func RunActioneerForever(configuration WorkConfiguration, doToken string) {
 		doClient:      godo.NewFromToken(doToken),
 	}
 
-	log.Println("Starting to run actioneer forever")
+	log.Info().Msgf("Starting to run actioneer forever")
 	loopIntervalSeconds := utils.GetEnvLoopIntervalSeconds()
 	for {
-		log.Println("Running actioneer loop")
+		log.Info().Msgf("Running actioneer loop")
 
 		startMillis := time.Now().UnixNano() / int64(time.Millisecond)
 		actioneer.loopRun()
@@ -36,7 +36,7 @@ func RunActioneerForever(configuration WorkConfiguration, doToken string) {
 		// Sleep difference
 		sleepMillis := int64(loopIntervalSeconds)*1000 - (endMillis - startMillis)
 		if sleepMillis < 0 {
-			log.Println("Loop took longer than the configurated loop interval seconds: ", loopIntervalSeconds)
+			log.Info().Msgf("Loop took longer than the configurated loop interval seconds: %v", loopIntervalSeconds)
 			continue
 		}
 
@@ -48,14 +48,14 @@ func (a *Actioneer) loopRun() {
 	if a.lastEgressIP == "" {
 		err := a.firstSpecialRun()
 		if err != nil {
-			log.Println("Error in first special run. Err: ", err)
+			log.Info().Msgf("Error in first special run. Err: %v", err)
 		}
 		return
 	}
 
 	err := a.subsequentRun()
 	if err != nil {
-		log.Println("Error in subsequent run. Err: ", err)
+		log.Info().Msgf("Error in subsequent run. Err: %v", err)
 		return
 	}
 }
@@ -64,18 +64,18 @@ func (a *Actioneer) firstSpecialRun() error {
 	{
 		ip, err := utils.GetPublicIP()
 		if err != nil {
-			log.Println("Error getting public IP")
+			log.Error().Msgf("Error getting public IP")
 			return err
 		}
 
 		a.lastEgressIP = ip
 	}
 
-	log.Println("First special run with IP: ", a.lastEgressIP)
+	log.Info().Msgf("First special run with IP: %v", a.lastEgressIP)
 
 	err := a.processWholeFlowOnProperMoment()
 	if err != nil {
-		log.Println("Error processing whole flow on proper moment. Err: ", err)
+		log.Info().Msgf("Error processing whole flow on proper moment. Err: %v", err)
 		return err
 	}
 	return nil
@@ -84,17 +84,17 @@ func (a *Actioneer) firstSpecialRun() error {
 func (a *Actioneer) subsequentRun() error {
 	ip, err := utils.GetPublicIP()
 	if err != nil {
-		log.Println("Error getting public IP for subsequent run")
+		log.Error().Msgf("Error getting public IP for subsequent run")
 		return err
 	}
 
 	if a.lastEgressIP == ip {
-		log.Println("No change in egress IP. Nothing to do then")
+		log.Info().Msgf("No change in egress IP. Nothing to do then")
 		return nil
 	}
 
 	// Ip changed!
-	log.Println("Egress IP changed from: ", a.lastEgressIP, " to: ", ip)
+	log.Info().Msgf("Egress IP changed from: %v to: %v", a.lastEgressIP, ip)
 	a.lastEgressIP = ip
 	err = a.processWholeFlowOnProperMoment()
 	if err != nil {
@@ -107,7 +107,7 @@ func (a *Actioneer) subsequentRun() error {
 func (a *Actioneer) processWholeFlowOnProperMoment() error {
 	ruleToApply := a.getApplyingRule(a.lastEgressIP)
 	if ruleToApply == nil {
-		log.Println("No rule to apply that matches the egress IP: ", a.lastEgressIP, ", and nothing can be done then")
+		log.Info().Msgf("No rule to apply that matches the egress IP: %v, and nothing can be done then", a.lastEgressIP)
 		return errors.New("no rule to apply that matches the egress IP")
 	}
 
@@ -119,7 +119,7 @@ func (a *Actioneer) processWholeFlowOnProperMoment() error {
 	// Check if records are properly configured
 	err = a.checkIfDomainRecordsAreCorrect(*ruleToApply)
 	if err != nil {
-		log.Println("Error checking if domain records are correct. Err: ", err)
+		log.Info().Msgf("Error checking if domain records are correct. Err: %v", err)
 		return err
 	}
 
@@ -129,17 +129,17 @@ func (a *Actioneer) processWholeFlowOnProperMoment() error {
 func (a *Actioneer) fetchDomainRecords() error {
 	domains, response, err := a.doClient.Domains.List(context.Background(), nil)
 	if err != nil {
-		log.Println("Error getting domains. Err: ", err)
+		log.Error().Msgf("Error getting domains. Err: %v", err)
 		return err
 	}
 
 	for _, domain := range domains {
-		log.Println("Processing domain: ", domain.Name)
+		log.Info().Msgf("Processing domain: %v", domain.Name)
 
 		allRecords, err := a.getAllRecordsForDomain(domain)
 
 		if err != nil {
-			log.Println("Error getting domain records. Err: ", err)
+			log.Error().Msgf("Error getting domain records. Err: %v", err)
 			return err
 		}
 
@@ -152,11 +152,11 @@ func (a *Actioneer) fetchDomainRecords() error {
 				ForRecord: record,
 			}
 			a.trackingRecords = append(a.trackingRecords, processedRecord)
-			log.Println("Identified A DNS record: name: ", record.Name, " type: ", record.Type, " data: ", record.Data, "ID: ", record.ID, " ttl: ", record.TTL, " priority: ", record.Priority, " flags: ", record.Flags, " tag: ", record.Tag, " port: ", record.Port, " weight: ", record.Weight)
+			log.Info().Msgf("Identified A DNS record: name: %v type: %v data: %v ID: %v ttl: %v priority: %v flags: %v tag: %v port: %v weight: %v", record.Name, record.Type, record.Data, record.ID, record.TTL, record.Priority, record.Flags, record.Tag, record.Port, record.Weight)
 		}
 	}
 
-	log.Println("rate: ", response.Rate.Remaining, "/", response.Rate.Limit, " reset: ", response.Rate.Reset)
+	log.Info().Msgf("rate: %v/%v reset: %v", response.Rate.Remaining, response.Rate.Limit, response.Rate.Reset)
 
 	return nil
 }
@@ -167,23 +167,23 @@ func (a *Actioneer) checkIfDomainRecordsAreCorrect(ruleToApply IPConfiguration) 
 		fullDomain := getFullDomainName(trackingRecord.ForDomain, trackingRecord.ForRecord)
 
 		if a.configuration.ChangeTheseDNSs[fullDomain] != "" {
-			log.Println("Record is configured to be analyzed: ", fullDomain)
+			log.Info().Msgf("Record is configured to be analyzed: %v", fullDomain)
 			if trackingRecord.ForRecord.Data == thenIP {
-				log.Println("Record is already configured correctly. Skipping")
+				log.Info().Msgf("Record is already configured correctly. Skipping")
 				continue
 			}
 
-			log.Println("Record ", fullDomain, "is not correct (", trackingRecord.ForRecord.Data, "). Changing it to: ", thenIP)
+			log.Info().Msgf("Record %v is not correct (%v). Changing it to: %v", fullDomain, trackingRecord.ForRecord.Data, thenIP)
 			err := a.updateRecordToIp(trackingRecord, thenIP)
 			if err != nil {
-				log.Println("Error updating record. Err: ", err)
+				log.Info().Msgf("Error updating record. Err: %v", err)
 				return err
 			}
 		} else if a.configuration.DoNotChangeTheseDNSs[fullDomain] != "" {
 			// Ok, only ignore
-			log.Println("Ignoring record (as it was present on 'doNotChange' list): ", fullDomain)
+			log.Info().Msgf("Ignoring record (as it was present on 'doNotChange' list): %v", fullDomain)
 		} else {
-			log.Println("A DNS domain is not on 'change' or 'doNotChange' lists. It should not happen: ", fullDomain)
+			log.Error().Msgf("A DNS domain is not on 'change' or 'doNotChange' lists. It should not happen: %v", fullDomain)
 			utils.SendNotification("A DNS domain is not on 'change' or 'doNotChange' lists. It should not happen: " + fullDomain)
 		}
 	}
@@ -236,7 +236,7 @@ func (a *Actioneer) updateRecordToIp(record TrackingDomainRecord, ip string) err
 		return err
 	}
 
-	log.Println("Updated record: name: ", editedRecord.Name, " type: ", editedRecord.Type, " data: ", editedRecord.Data, "ID: ", editedRecord.ID, " ttl: ", editedRecord.TTL, " priority: ", editedRecord.Priority, " flags: ", editedRecord.Flags, " tag: ", editedRecord.Tag, " port: ", editedRecord.Port, " weight: ", editedRecord.Weight)
+	log.Info().Msgf("Updated record: name: %v type: %v data: %v ID: %v ttl: %v priority: %v flags: %v tag: %v port: %v weight: %v", editedRecord.Name, editedRecord.Type, editedRecord.Data, editedRecord.ID, editedRecord.TTL, editedRecord.Priority, editedRecord.Flags, editedRecord.Tag, editedRecord.Port, editedRecord.Weight)
 
 	return nil
 }

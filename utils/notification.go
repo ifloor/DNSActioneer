@@ -2,7 +2,7 @@ package utils
 
 import (
 	"github.com/gtuk/discordwebhook"
-	"log"
+	"github.com/rs/zerolog/log"
 )
 
 func SendNotification(messageText string) {
@@ -17,6 +17,6 @@ func SendNotification(messageText string) {
 
 	err := discordwebhook.SendMessage(url, message)
 	if err != nil {
-		log.Println("Error sending notification: ", err)
+		log.Info().Msgf("Error sending notification: %v", err)
 	}
 }
